@@ -230,13 +230,13 @@ piLtot      = piLo1 + piLo2 + piLo3 + piLo4;
 LoF_        = piLtot/pi;
 Fhem_       = Fplu_(1,:)';
 
-rad.LoF_    = interp1(wlF,LoF_,spectral.wlF','splines');
-rad.EoutF_   = interp1(wlF,Fhem_,spectral.wlF','splines');
+rad.LoF_    = interp1(wlF,LoF_,spectral.wlF','spline');
+rad.EoutF_   = interp1(wlF,Fhem_,spectral.wlF','spline');
 
-rad.LoF_sunlit      = interp1(wlF,piLo1/pi,spectral.wlF','splines');
-rad.LoF_shaded      = interp1(wlF,piLo2/pi,spectral.wlF','splines');
-rad.LoF_scattered   = interp1(wlF,piLo3/pi,spectral.wlF','splines');
-rad.LoF_soil        = interp1(wlF,piLo4/pi,spectral.wlF','splines');
+rad.LoF_sunlit      = interp1(wlF,piLo1/pi,spectral.wlF','spline');
+rad.LoF_shaded      = interp1(wlF,piLo2/pi,spectral.wlF','spline');
+rad.LoF_scattered   = interp1(wlF,piLo3/pi,spectral.wlF','spline');
+rad.LoF_soil        = interp1(wlF,piLo4/pi,spectral.wlF','spline');
 
 rad.EoutF   = 0.001 * Sint(Fhem_,wlF);
 rad.LoutF   = 0.001 * Sint(LoF_,wlF);
