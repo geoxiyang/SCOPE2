@@ -66,6 +66,7 @@ wlt         = spectral.wlT;
 
 nl          = canopy.nlayers;
 lidf        = canopy.lidf;
+if size(lidf, 2) > 1, lidf = mean(lidf, 2); end  % collapse per-layer to [13x1]
 Ps          = gap.Ps;
 %
 rho         = leafopt.refl(:, IT)';    % [1]               Leaf/needle reflection

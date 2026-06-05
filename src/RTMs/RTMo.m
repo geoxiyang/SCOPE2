@@ -165,12 +165,19 @@ sobli       = frho*pi/(cos_tts*cos_tto);    % [13]      pag 309{1} area scatteri
 sofli       = ftau*pi/(cos_tts*cos_tto);    % [13]      pag 309{1}
 bfli        = cos_ttli.^2;                  % [13]
 
-%integration over angles (using a vector inproduct) -> scalars
-k           = ksli'*lidf;                   %           pag 306{1}    extinction coefficient in direction of sun.
-K           = koli'*lidf;                   %           pag 307{1}    extinction coefficient in direction of observer
-bf          = bfli'*lidf;                   %
-sob         = sobli'*lidf;                  %           weight of specular2directional back    scatter coefficient
-sof         = sofli'*lidf;                  %           weight of specular2directional forward scatter coefficient
+% Integration over angles.
+% When canopy.lidf is [13 x nl], compute per-layer extinction/scatter vectors [nl x 1].
+% When canopy.lidf is [13 x 1] (the standard case), results are also [nl x 1] via repmat.
+if size(lidf, 2) == 1
+    lidf_mat = repmat(lidf, 1, nl);   % [13 x nl] uniform
+else
+    lidf_mat = lidf;                  % [13 x nl] per-layer
+end
+k   = (ksli' * lidf_mat)';  % [nl x 1]  extinction coefficient in direction of sun
+K   = (koli' * lidf_mat)';  % [nl x 1]  extinction coefficient in direction of observer
+bf  = (bfli' * lidf_mat)';  % [nl x 1]
+sob = (sobli'* lidf_mat)';  % [nl x 1]  weight of specular2directional back    scatter coefficient
+sof = (sofli'* lidf_mat)';  % [nl x 1]  weight of specular2directional forward scatter coefficient
 % 1.3 geometric factors to be used later with rho and tau, f1 f2 of pag 304:
 % these variables are scalars
 sdb         = 0.5*(k+bf);                   % fs*f1
@@ -189,13 +196,13 @@ fs          = abs(cos_deltas/cos_tts);         % [nli,nlazi] pag 305
 %% 2. Calculation of reflectance
 % 2.1  reflectance, transmittance factors in a thin layer
 % the following are vectors with lenght [nl,nwl]
-sigb        = ddb*rho + ddf*tau;            % [nl,nwl]     sigmab, p305{1} diffuse     backscatter scattering coefficient for diffuse  incidence
-sigf        = ddf*rho + ddb*tau;            % [nl,nwl]     sigmaf, p305{1} diffuse     forward     scattering coefficient for forward  incidence
-sb          = sdb*rho + sdf*tau;            % [nl,nwl]     sb,     p305{1} diffuse     backscatter scattering coefficient for specular incidence
-sf          = sdf*rho + sdb*tau;            % [nl,nwl]     sf,     p305{1} diffuse     forward     scattering coefficient for specular incidence
-vb          = dob*rho + dof*tau;            % [nl,nwl]     vb,     p305{1} directional backscatter scattering coefficient for diffuse  incidence
-vf          = dof*rho + dob*tau;            % [nl,nwl]     vf,     p305{1} directional forward     scattering coefficient for diffuse  incidence
-w           = sob*rho + sof*tau;            % [nl,nwl]     w,      p309{1} bidirectional scattering coefficent (directional-directional)
+sigb        = ddb.*rho + ddf.*tau;          % [nl,nwl]     sigmab, p305{1} diffuse     backscatter scattering coefficient for diffuse  incidence
+sigf        = ddf.*rho + ddb.*tau;          % [nl,nwl]     sigmaf, p305{1} diffuse     forward     scattering coefficient for forward  incidence
+sb          = sdb.*rho + sdf.*tau;          % [nl,nwl]     sb,     p305{1} diffuse     backscatter scattering coefficient for specular incidence
+sf          = sdf.*rho + sdb.*tau;          % [nl,nwl]     sf,     p305{1} diffuse     forward     scattering coefficient for specular incidence
+vb          = dob.*rho + dof.*tau;          % [nl,nwl]     vb,     p305{1} directional backscatter scattering coefficient for diffuse  incidence
+vf          = dof.*rho + dob.*tau;          % [nl,nwl]     vf,     p305{1} directional forward     scattering coefficient for diffuse  incidence
+w           = sob.*rho + sof.*tau;          % [nl,nwl]     w,      p309{1} bidirectional scattering coefficent (directional-directional)
 a           = 1-sigf;                       % [nl,nwl]     attenuation
 
 % crown area projections
@@ -206,7 +213,7 @@ Co          = 1-(1-Cv).^(1./cos_tto);       %           crown cover fraction pro
 
 % diffuse fluxes within the vegetation covered part
 %iLAI    =   LAI/nl; 
-tau_ss = repmat(1-k.*iLAI,nl,1);  %REPLACE when LIDF profile ready.
+tau_ss = 1 - k.*iLAI;              % [nl x 1] per-layer direct transmittance
 tau_dd = (1-a.*iLAI);
 tau_sd = sf.*iLAI;
 rho_sd = sb.*iLAI;
@@ -223,18 +230,21 @@ Eplu_ = Eplus_+Eplud_;
 %%
 % 1.5 probabilities Ps, Po, Pso
 d_h         = crownd / canopy.hc;
-Ps0          =   exp(k*xl*LAI) ;                                              % [nl+1]  p154{1} probability of viewing a leaf in solar dir
-Po0          =   exp(K*xl*LAI) ;
-Ps0(1:nl)    =   Ps0(1:nl) *(1-exp(-k*LAI*dx))/(k*LAI*dx);                                      % Correct Ps/Po for finite dx
-Po0(1:nl)    =   Po0(1:nl) *(1-exp(-K*LAI*dx))/(K*LAI*dx);  % Correct Ps/Po for finite dx
+Ps0 = [1; cumprod(exp(-k.*iLAI))];                          % [nl+1 x 1] per-layer cumulative gap (solar)
+Po0 = [1; cumprod(exp(-K.*iLAI))];                          % [nl+1 x 1] per-layer cumulative gap (observer)
+% Correct Ps/Po for finite layer thickness (average within layer vs. at layer top)
+corr_s = (1 - exp(-k.*iLAI)) ./ max(k.*iLAI, 1e-10);       % [nl x 1]  (lim k→0 = 1)
+corr_o = (1 - exp(-K.*iLAI)) ./ max(K.*iLAI, 1e-10);
+Ps0(1:nl) = Ps0(1:nl) .* corr_s;
+Po0(1:nl) = Po0(1:nl) .* corr_o;
 
 xls         =   min(1,d_h*(1-Cv)/Cv / tan_tts);% theta is the ratio of d/h
 xlo         =   min(1,d_h*(1-Cv)/Cv / tan_tto);
 
-C1s         = exp(-k*iLAI); % extinction
-C1o         = exp(-K*iLAI);
-C2s         = tan_tts/theta/nl * exp(-k*iLAI/4); % extra term
-C2o         = tan_tto/theta/nl * exp(-K*iLAI/4);
+C1s         = exp(-k.*iLAI);                         % [nl x 1] extinction per layer
+C1o         = exp(-K.*iLAI);
+C2s         = tan_tts/theta/nl .* exp(-k.*iLAI/4);  % [nl x 1] extra term
+C2o         = tan_tto/theta/nl .* exp(-K.*iLAI/4);
 % coefficients in the extra term: 2 because it is a triangle
 % 4 (need to check carefully) because we account for the extinction within the thin layer. The
 % average path out is integral of all positions in the triangle to the exit
@@ -242,12 +252,12 @@ C2o         = tan_tto/theta/nl * exp(-K*iLAI/4);
 %
 
 [Ps1,Po1]     = deal(ones(nl+1,1));
-Ps1(1)      = C2s;
-Po1(1)      = C2o;
+Ps1(1)      = C2s(1);
+Po1(1)      = C2o(1);
 for j = 2:nl+1
-    Ps1(j)   = C1s*Ps1(j-1)+C2s *double(((j-1)/nl)<=xls);
-    Po1(j)   = C1o*Po1(j-1)+C2o *double(((j-1)/nl)<=xlo);
-    
+    jl = min(j-1, nl);   % layer index (1..nl) for this depth step
+    Ps1(j)   = C1s(jl)*Ps1(j-1) + C2s(jl)*double(((j-1)/nl)<=xls);
+    Po1(j)   = C1o(jl)*Po1(j-1) + C2o(jl)*double(((j-1)/nl)<=xlo);
 end
 
 
@@ -259,7 +269,8 @@ Po          = Po0 + Po1;
 q           =   canopy.hot;
 Pso         =   zeros(size(Po));
 for j=1:length(xl)
-    Pso(j,:)=   quad(@(y)Psofunction(K,k,LAI,q,dso,y),xl(j)-dx,xl(j))/dx; %#ok<FREMO>
+    jl = min(j, nl);     % clamp to valid layer index for per-layer k/K
+    Pso(j,:)=   quad(@(y)Psofunction(K(jl),k(jl),LAI,q,dso,y),xl(j)-dx,xl(j))/dx; %#ok<FREMO>
 end
 Pso(Pso>Po)= min([Po(Pso>Po),Ps(Pso>Po)],[],2);    %takes care of rounding error
 Pso(Pso>Ps)= min([Po(Pso>Ps),Ps(Pso>Ps)],[],2);    %takes care of rounding error
@@ -322,7 +333,8 @@ end
 % total direct radiation (incident and net) per leaf area (W m-2 leaf)
 %Pdir        = fs * Psun;                        % [13 x 36]   incident
 if options.lite
-    fs      = lidf'*mean(fs,2);%
+    lidf_mean = mean(lidf_mat, 2);   % [13 x 1] average lidf for lite mode
+    fs      = lidf_mean'*mean(fs,2);%
     Rndir       = fs * Asun(j);                        % [13 x 36 x nl]   net
     Pndir       = fs * Pnsun(j);                       % [13 x 36 x nl]   net PAR
     Pndir_Cab   = fs * Pnsun_Cab(j);                   % [13 x 36 x nl]   net PAR Cab

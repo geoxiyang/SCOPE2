@@ -5,3 +5,5 @@ mSCOPE_simulated_reflectance.csv
 *.xlsx
 src/supporting/lh2inputdata.m
 .DS_Store
+__pycache__/
+*.pyc

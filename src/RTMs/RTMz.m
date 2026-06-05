@@ -37,6 +37,7 @@ iLAI        = LAI/nl;                       % LAI of a layer        [1]
 litab       = canopy.litab;
 lazitab     = canopy.lazitab;
 lidf        = canopy.lidf;
+if size(lidf, 2) > 1, lidf = mean(lidf, 2); end  % collapse per-layer to [13x1]
 nlazi       = length(lazitab);         % azumith angle
 nlinc       = length(litab);           % inclination
 nlori       = nlinc * nlazi;           % total number of leaf orientations
