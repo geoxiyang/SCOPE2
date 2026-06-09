@@ -287,27 +287,28 @@ with tab_vert:
 
             for sc in ANGLE_SCENARIOS:
                 sub = df_vert[df_vert["scenario"] == sc].sort_values("depth_rel")
+                height = 1 - sub["depth_rel"]   # 0 = ground, 1 = canopy top
                 color = ANGLE_COLORS[sc]
                 ax3.plot(
-                    sub[vert_metric], sub["depth_rel"],
+                    sub[vert_metric], height,
                     color=color, linewidth=2, label=sc,
                 )
                 if show_ps_axis and ax3_twin is not None:
                     ax3_twin.plot(
-                        sub["Ps"], sub["depth_rel"],
+                        sub["Ps"], height,
                         color=color, linewidth=1, linestyle="--", alpha=0.45,
                     )
 
-            # Y-axis: 0 at top, 1 at bottom
-            ax3.set_ylim(1, 0)
+            # Y-axis: 0 at bottom (ground), 1 at top (canopy top)
+            ax3.set_ylim(0, 1)
             ax3.set_xlabel(f"{vert_metric}  [{metric_meta['units']}]", fontsize=12)
-            ax3.set_ylabel("Relative depth in canopy  [0 = top, 1 = bottom]", fontsize=11)
+            ax3.set_ylabel("Relative height in canopy  [0 = ground, 1 = top]", fontsize=11)
             sweep_unit = "m² m⁻²" if sweep_key == "LAI" else "W m⁻²"
             ax3.set_title(
                 f"{metric_meta['label']} profile  —  {sweep_key} = {actual_val:.1f} {sweep_unit}",
                 fontsize=13,
             )
-            ax3.legend(fontsize=9, loc="lower right")
+            ax3.legend(fontsize=9, loc="lower left")
             ax3.grid(True, alpha=0.3)
 
             if show_ps_axis and ax3_twin is not None:
@@ -320,8 +321,9 @@ with tab_vert:
             plt.close(fig3)
 
         st.caption(
-            "Each line shows the canopy-depth profile of the selected metric under a "
-            "different leaf angle distribution scenario (uniform LAI, 10 mSCOPE layers). "
+            "Each line shows the per-layer value of the selected metric at each height in "
+            "the canopy (0 = ground, 1 = top) under a different leaf angle distribution "
+            "scenario (uniform LAI, 10 mSCOPE layers). "
             "Vertical-on-top (erectophile near sky) allows more direct light to penetrate "
-            "deeper; Horizontal-on-top (planophile near sky) intercepts more light at the top."
+            "deeper; Horizontal-on-top (planophile near sky) intercepts more light near the top."
         )
